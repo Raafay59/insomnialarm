@@ -9,26 +9,117 @@ import {
   View,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
+import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function App() {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
   const [hour, setHour] = useState(7);
   const [minute, setMinute] = useState(0);
-  const [amPm, setAmPm] = useState('AM');
+  const [amPm, setAmPm] = useState("AM");
+  //used for the switch
   const [alarmStatus, setAlarmStatus] = useState(false);
+  //used for the modal
   const [isSettingAlarm, setIsSettingAlarm] = useState(false);
+  //used for the alarm going off
+  const [alarmIsGoingOff, setAlarmIsGoingOff] = useState(false);
+  const storeAlarmTime = async () => {
+    try {
+      await AsyncStorage.setItem(
+        "alarmTime",
+        JSON.stringify({ hour, minute, amPm })
+      ).then(() => console.log(`Alarm time stored: ${hour}:${minute} ${amPm}`));
+    } catch (e) {
+      console.log(e);
+    }
+  };
+  const getAlarmTime = async () => {
+    try {
+      const value = await AsyncStorage.getItem("alarmTime");
+      if (value !== null) {
+        const { hour, minute, amPm } = JSON.parse(value);
+        setHour(hour);
+        setMinute(minute);
+        setAmPm(amPm);
+        console.log(`Alarm time retrieved: ${hour}:${minute} ${amPm}`);
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  };
   function formatMinutes() {
     if (minute < 10) {
       return `0${minute}`;
     }
     return minute;
   }
+  function timeUntil(hrs, mins, period) {
+    //write a function that returns the seconds between now and the time passed in
+    const now = new Date();
+    const alarm = new Date();
+    alarm.setHours(hrs);
+    alarm.setMinutes(mins);
+    alarm.setSeconds(0);
+    alarm.setMilliseconds(0);
+    if (period === "PM") {
+      alarm.setHours(alarm.getHours() + 12);
+    }
+    const timeUntil = alarm - now;
+    console.log(timeUntil / 1000);
+    return timeUntil / 1000;
+  }
+  async function setNotificatiiion() {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "ALARM",
+        body: "WAKE UP!!!!",
+        sound: "alarm.wav",
+      },
+      trigger: {
+        seconds: timeUntil(hour, minute, amPm),
+      },
+    });
+    console.log(`Notification scheduled for ${hour}:${minute} ${amPm}`);
+  }
+
+  useEffect(() => {
+    getAlarmTime();
+    async function requestPermissions() {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== "granted") {
+        alert("No notification permissions!");
+      }
+    }
+
+    requestPermissions();
+  }, []);
+
   return (
     <View style={styles.container}>
       <View id="current alarm txt" style={styles.header}>
         <Text style={{ fontSize: 50, textAlign: "center", color: "#fff" }}>
           Current Alarm:
         </Text>
+        <Button
+          title="clear everything"
+          onPress={() => {
+            AsyncStorage.clear();
+            setHour(7);
+            setMinute(0);
+            setAmPm("AM");
+            Notifications.cancelAllScheduledNotificationsAsync();
+          }}
+        />
       </View>
       <View id="time display" style={styles.timeDisplay}>
         <Text style={{ fontSize: 100, textAlign: "center", color: "#fff" }}>
@@ -44,6 +135,12 @@ export default function App() {
           ios_backgroundColor={"grey"}
           value={alarmStatus}
           onValueChange={(value) => {
+            //if the alarm is being turned on and the time is set then schedule the notification
+            if (value && hour !== null && minute !== null && amPm !== null) {
+              setNotificatiiion();
+            } else {
+              Notifications.cancelAllScheduledNotificationsAsync();
+            }
             setAlarmStatus(value);
           }}
         ></Switch>
@@ -52,7 +149,21 @@ export default function App() {
         <Button title="Change Alarm" onPress={() => setIsSettingAlarm(true)} />
       </View>
       <View id="view mosaic" style={styles.viewMosaic}>
-        <Button title="View Mosaic" />
+        <Button
+          title="View Mosaic"
+          onPress={async () => {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: "Test",
+                body: "Notification test",
+                sound: "alarm.wav",
+              },
+              trigger: {
+                seconds: 2,
+              },
+            }).then(console.log(`Notification scheduled\n ${new Date()}`));
+          }}
+        />
       </View>
       <Modal
         visible={isSettingAlarm}
@@ -86,10 +197,14 @@ export default function App() {
                 onValueChange={(itemValue, itemIndex) => setMinute(itemValue)}
                 style={{ flex: 1 }}
               >
-                <Picker.Item label="00" value={0} color="white" />
-                <Picker.Item label="15" value={15} color="white" />
-                <Picker.Item label="30" value={30} color="white" />
-                <Picker.Item label="45" value={45} color="white" />
+                {Array.from({ length: 60 }, (_, i) => i).map((value) => (
+                  <Picker.Item
+                    key={value}
+                    label={String(value).padStart(2, "0")}
+                    value={value}
+                    color="white"
+                  />
+                ))}
               </Picker>
               <Picker
                 selectedValue={amPm}
@@ -100,7 +215,17 @@ export default function App() {
                 <Picker.Item label="PM" value="PM" color="white" />
               </Picker>
             </View>
-            <Button title="save" onPress={() => setIsSettingAlarm(false)} />
+            <Button
+              title="save"
+              onPress={() => {
+                //if the alarm is on then schedule the notification
+                if (alarmStatus) {
+                  setNotificatiiion();
+                }
+                setIsSettingAlarm(false);
+                storeAlarmTime();
+              }}
+            />
           </View>
         </View>
       </Modal>
