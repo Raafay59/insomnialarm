@@ -4,9 +4,7 @@
       [
         "expo-notifications",
         {
-          "sounds": [
-            "./assets/alarm.wav"
-          ]
+          "sounds": ["./assets/alarm.wav"]
         }
       ]
     ],

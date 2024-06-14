@@ -15,6 +15,8 @@ import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as TaskManager from "expo-task-manager";
+import DrawingScreen from "./DrawingScreen";
 
 export default function App() {
   Notifications.setNotificationHandler({
@@ -74,9 +76,12 @@ export default function App() {
     if (period === "PM") {
       alarm.setHours(alarm.getHours() + 12);
     }
-    const timeUntil = alarm - now;
-    console.log(timeUntil / 1000);
-    return timeUntil / 1000;
+    let time = alarm - now;
+    if (time < 0) {
+      time += 86400000;
+    }
+    console.log(time / 1000);
+    return time / 1000;
   }
   async function setNotificatiiion() {
     await Notifications.scheduleNotificationAsync({
@@ -102,6 +107,14 @@ export default function App() {
     }
 
     requestPermissions();
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        setAlarmIsGoingOff(true);
+        console.log("alarm is going off");
+      }
+    );
+    return () => subscription.remove();
   }, []);
 
   return (
@@ -119,6 +132,10 @@ export default function App() {
             setAmPm("AM");
             Notifications.cancelAllScheduledNotificationsAsync();
           }}
+        />
+        <Button
+          title="test alarm screen"
+          onPress={() => setAlarmIsGoingOff(true)}
         />
       </View>
       <View id="time display" style={styles.timeDisplay}>
@@ -229,6 +246,36 @@ export default function App() {
           </View>
         </View>
       </Modal>
+      <Modal
+        visible={alarmIsGoingOff}
+        onRequestClose={() => setIsSettingAlarm(false)}
+        animationType="fade"
+        transparent={true}
+      >
+        <View style={styles.centeredView}>
+          <View style={styles.alarmPopUp}>
+            <Text
+              style={{
+                color: "white",
+                fontSize: 40,
+                textAlign: "center",
+                marginTop: 10,
+              }}
+            >
+              ALARM IS GOING OFF
+            </Text>
+            <View style={styles.canvas}>
+              <DrawingScreen />
+            </View>
+            <Button
+              title="stop alarm"
+              onPress={() => {
+                setAlarmIsGoingOff(false);
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -236,9 +283,15 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#3f0491",
+    backgroundColor: "#0d126b",
     justifyContent: "center",
     padding: 50,
+  },
+  canvas: {
+    flex: 1,
+    backgroundColor: "tomato",
+    borderRadius: 30,
+    margin: 20,
   },
   header: {
     // backgroundColor: "tomato",
@@ -274,6 +327,16 @@ const styles = StyleSheet.create({
   popUp: {
     height: 300,
     width: 300,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "midnightblue",
+    borderRadius: 30,
+    alignItems: "stretch",
+    paddingBottom: 20,
+  },
+  alarmPopUp: {
+    height: 700,
+    width: 350,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "midnightblue",
