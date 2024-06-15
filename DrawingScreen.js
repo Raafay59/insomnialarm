@@ -13,24 +13,26 @@ export default function DrawingScreen() {
   // Called after ref.current.readSignature() reads a non-empty base64 string
   const handleOK = async (signature) => {
     const imageBase64 = signature.replace("data:image/png;base64,", "");
-    const response = await fetch("http://localhost:7771/test", {
+    const response = await fetch("http://192.168.254.65:7771/test", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         base64: imageBase64,
-        label: "flower",
+        label: "drawing",
       }),
-    }).then(console.log(JSON.stringify(response)));
+    });
     const data = await response.json();
+    console.log(data.success);
     if (data.success) {
       setAlarmIsGoingOff(false);
+      Notifications.cancelAllScheduledNotificationsAsync();
     } else {
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: "Test",
-          body: "Notification test",
+          title: "DID NOT DRAW A FLOWER",
+          body: "No flower was detected in your drawing",
           sound: "alarm.wav",
         },
         trigger: {

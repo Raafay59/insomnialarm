@@ -95,6 +95,7 @@ export default function App() {
       },
       trigger: {
         seconds: timeUntil(hour, minute, amPm),
+        repeats: true,
       },
     });
     console.log(`Notification scheduled for ${hour}:${minute} ${amPm}`);
@@ -122,7 +123,9 @@ export default function App() {
   }, []);
 
   return (
-    <DrawingSuccessContext.Provider value={[alarmIsGoingOff, setAlarmIsGoingOff]}>
+    <DrawingSuccessContext.Provider
+      value={[alarmIsGoingOff, setAlarmIsGoingOff]}
+    >
       <View style={styles.container}>
         <View id="current alarm txt" style={styles.header}>
           <Text style={{ fontSize: 50, textAlign: "center", color: "#fff" }}>
