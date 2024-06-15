@@ -16,7 +16,8 @@ import Constants from "expo-constants";
 import { get } from "react-native/Libraries/TurboModule/TurboModuleRegistry";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as TaskManager from "expo-task-manager";
-import DrawingScreen from "./DrawingScreen";
+import DrawingScreen from "./DrawingScreen.js";
+import DrawingSuccessContext from "./DrawingSuccessContext.js";
 
 export default function App() {
   Notifications.setNotificationHandler({
@@ -26,6 +27,8 @@ export default function App() {
       shouldSetBadge: false,
     }),
   });
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [hour, setHour] = useState(7);
   const [minute, setMinute] = useState(0);
   const [amPm, setAmPm] = useState("AM");
@@ -110,6 +113,7 @@ export default function App() {
 
     const subscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
+        setIsDrawing(true);
         setAlarmIsGoingOff(true);
         console.log("alarm is going off");
       }
@@ -118,165 +122,175 @@ export default function App() {
   }, []);
 
   return (
-    <View style={styles.container}>
-      <View id="current alarm txt" style={styles.header}>
-        <Text style={{ fontSize: 50, textAlign: "center", color: "#fff" }}>
-          Current Alarm:
-        </Text>
-        <Button
-          title="clear everything"
-          onPress={() => {
-            AsyncStorage.clear();
-            setHour(7);
-            setMinute(0);
-            setAmPm("AM");
-            Notifications.cancelAllScheduledNotificationsAsync();
-          }}
-        />
-        <Button
-          title="test alarm screen"
-          onPress={() => setAlarmIsGoingOff(true)}
-        />
-      </View>
-      <View id="time display" style={styles.timeDisplay}>
-        <Text style={{ fontSize: 100, textAlign: "center", color: "#fff" }}>
-          {hour}:{formatMinutes(minute)} {amPm}
-        </Text>
-      </View>
-      <View id="alarm toggle" style={styles.alarmToggle}>
-        <Text style={{ padding: 10, fontSize: 20, color: "#fff" }}>
-          Alarm toggle:
-        </Text>
-        <Switch
-          trackColor={{ false: "#6c93a3", true: "#03b6fc" }}
-          ios_backgroundColor={"grey"}
-          value={alarmStatus}
-          onValueChange={(value) => {
-            //if the alarm is being turned on and the time is set then schedule the notification
-            if (value && hour !== null && minute !== null && amPm !== null) {
-              setNotificatiiion();
-            } else {
+    <DrawingSuccessContext.Provider value={[alarmIsGoingOff, setAlarmIsGoingOff]}>
+      <View style={styles.container}>
+        <View id="current alarm txt" style={styles.header}>
+          <Text style={{ fontSize: 50, textAlign: "center", color: "#fff" }}>
+            Current Alarm:
+          </Text>
+          <Button
+            title="clear everything"
+            onPress={() => {
+              AsyncStorage.clear();
+              setHour(7);
+              setMinute(0);
+              setAmPm("AM");
               Notifications.cancelAllScheduledNotificationsAsync();
-            }
-            setAlarmStatus(value);
-          }}
-        ></Switch>
-      </View>
-      <View id="change alarm" style={styles.changeAlarm}>
-        <Button title="Change Alarm" onPress={() => setIsSettingAlarm(true)} />
-      </View>
-      <View id="view mosaic" style={styles.viewMosaic}>
-        <Button
-          title="View Mosaic"
-          onPress={async () => {
-            await Notifications.scheduleNotificationAsync({
-              content: {
-                title: "Test",
-                body: "Notification test",
-                sound: "alarm.wav",
-              },
-              trigger: {
-                seconds: 2,
-              },
-            }).then(console.log(`Notification scheduled\n ${new Date()}`));
-          }}
-        />
-      </View>
-      <Modal
-        visible={isSettingAlarm}
-        onRequestClose={() => setIsSettingAlarm(false)}
-        animationType="fade"
-        transparent={true}
-      >
-        <View style={styles.centeredView}>
-          <View style={styles.popUp}>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={hour}
-                onValueChange={(itemValue, itemIndex) => setHour(itemValue)}
-                style={{ flex: 1 }}
-              >
-                <Picker.Item label="1" value={1} color="white" />
-                <Picker.Item label="2" value={2} color="white" />
-                <Picker.Item label="3" value={3} color="white" />
-                <Picker.Item label="4" value={4} color="white" />
-                <Picker.Item label="5" value={5} color="white" />
-                <Picker.Item label="6" value={6} color="white" />
-                <Picker.Item label="7" value={7} color="white" />
-                <Picker.Item label="8" value={8} color="white" />
-                <Picker.Item label="9" value={9} color="white" />
-                <Picker.Item label="10" value={10} color="white" />
-                <Picker.Item label="11" value={11} color="white" />
-                <Picker.Item label="12" value={12} color="white" />
-              </Picker>
-              <Picker
-                selectedValue={minute}
-                onValueChange={(itemValue, itemIndex) => setMinute(itemValue)}
-                style={{ flex: 1 }}
-              >
-                {Array.from({ length: 60 }, (_, i) => i).map((value) => (
-                  <Picker.Item
-                    key={value}
-                    label={String(value).padStart(2, "0")}
-                    value={value}
-                    color="white"
-                  />
-                ))}
-              </Picker>
-              <Picker
-                selectedValue={amPm}
-                onValueChange={(itemValue, itemIndex) => setAmPm(itemValue)}
-                style={{ flex: 1 }}
-              >
-                <Picker.Item label="AM" value="AM" color="white" />
-                <Picker.Item label="PM" value="PM" color="white" />
-              </Picker>
-            </View>
-            <Button
-              title="save"
-              onPress={() => {
-                //if the alarm is on then schedule the notification
-                if (alarmStatus) {
-                  setNotificatiiion();
-                }
-                setIsSettingAlarm(false);
-                storeAlarmTime();
-              }}
-            />
-          </View>
+            }}
+          />
+          <Button
+            title="test alarm screen"
+            onPress={() => {
+              setIsDrawing(true);
+              setAlarmIsGoingOff(true);
+            }}
+          />
         </View>
-      </Modal>
-      <Modal
-        visible={alarmIsGoingOff}
-        onRequestClose={() => setIsSettingAlarm(false)}
-        animationType="fade"
-        transparent={true}
-      >
-        <View style={styles.centeredView}>
-          <View style={styles.alarmPopUp}>
-            <Text
-              style={{
-                color: "white",
-                fontSize: 40,
-                textAlign: "center",
-                marginTop: 10,
-              }}
-            >
-              ALARM IS GOING OFF
-            </Text>
-            <View style={styles.canvas}>
-              <DrawingScreen />
-            </View>
-            <Button
-              title="stop alarm"
-              onPress={() => {
-                setAlarmIsGoingOff(false);
-              }}
-            />
-          </View>
+        <View id="time display" style={styles.timeDisplay}>
+          <Text style={{ fontSize: 100, textAlign: "center", color: "#fff" }}>
+            {hour}:{formatMinutes(minute)} {amPm}
+          </Text>
         </View>
-      </Modal>
-    </View>
+        <View id="alarm toggle" style={styles.alarmToggle}>
+          <Text style={{ padding: 10, fontSize: 20, color: "#fff" }}>
+            Alarm toggle:
+          </Text>
+          <Switch
+            trackColor={{ false: "#6c93a3", true: "#03b6fc" }}
+            ios_backgroundColor={"grey"}
+            value={alarmStatus}
+            onValueChange={(value) => {
+              //if the alarm is being turned on and the time is set then schedule the notification
+              if (value && hour !== null && minute !== null && amPm !== null) {
+                setNotificatiiion();
+              } else {
+                Notifications.cancelAllScheduledNotificationsAsync();
+              }
+              setAlarmStatus(value);
+            }}
+          ></Switch>
+        </View>
+        <View id="change alarm" style={styles.changeAlarm}>
+          <Button
+            title="Change Alarm"
+            onPress={() => setIsSettingAlarm(true)}
+          />
+        </View>
+        <View id="view mosaic" style={styles.viewMosaic}>
+          <Button
+            title="View Mosaic"
+            onPress={async () => {
+              await Notifications.scheduleNotificationAsync({
+                content: {
+                  title: "Test",
+                  body: "Notification test",
+                  sound: "alarm.wav",
+                },
+                trigger: {
+                  seconds: 2,
+                },
+              }).then(console.log(`Notification scheduled\n ${new Date()}`));
+            }}
+          />
+        </View>
+        <Modal
+          visible={isSettingAlarm}
+          onRequestClose={() => setIsSettingAlarm(false)}
+          animationType="fade"
+          transparent={true}
+        >
+          <View style={styles.centeredView}>
+            <View style={styles.popUp}>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={hour}
+                  onValueChange={(itemValue, itemIndex) => setHour(itemValue)}
+                  style={{ flex: 1 }}
+                >
+                  <Picker.Item label="1" value={1} color="white" />
+                  <Picker.Item label="2" value={2} color="white" />
+                  <Picker.Item label="3" value={3} color="white" />
+                  <Picker.Item label="4" value={4} color="white" />
+                  <Picker.Item label="5" value={5} color="white" />
+                  <Picker.Item label="6" value={6} color="white" />
+                  <Picker.Item label="7" value={7} color="white" />
+                  <Picker.Item label="8" value={8} color="white" />
+                  <Picker.Item label="9" value={9} color="white" />
+                  <Picker.Item label="10" value={10} color="white" />
+                  <Picker.Item label="11" value={11} color="white" />
+                  <Picker.Item label="12" value={12} color="white" />
+                </Picker>
+                <Picker
+                  selectedValue={minute}
+                  onValueChange={(itemValue, itemIndex) => setMinute(itemValue)}
+                  style={{ flex: 1 }}
+                >
+                  {Array.from({ length: 60 }, (_, i) => i).map((value) => (
+                    <Picker.Item
+                      key={value}
+                      label={String(value).padStart(2, "0")}
+                      value={value}
+                      color="white"
+                    />
+                  ))}
+                </Picker>
+                <Picker
+                  selectedValue={amPm}
+                  onValueChange={(itemValue, itemIndex) => setAmPm(itemValue)}
+                  style={{ flex: 1 }}
+                >
+                  <Picker.Item label="AM" value="AM" color="white" />
+                  <Picker.Item label="PM" value="PM" color="white" />
+                </Picker>
+              </View>
+              <Button
+                title="save"
+                onPress={() => {
+                  //if the alarm is on then schedule the notification
+                  if (alarmStatus) {
+                    setNotificatiiion();
+                  }
+                  setIsSettingAlarm(false);
+                  storeAlarmTime();
+                }}
+              />
+            </View>
+          </View>
+        </Modal>
+        <Modal
+          visible={alarmIsGoingOff}
+          onRequestClose={() => setIsSettingAlarm(false)}
+          animationType="fade"
+          transparent={true}
+        >
+          <View style={styles.centeredView}>
+            <View style={styles.alarmPopUp}>
+              <Text
+                style={{
+                  color: "white",
+                  fontSize: 40,
+                  textAlign: "center",
+                  marginTop: 10,
+                }}
+              >
+                ALARM IS GOING OFF
+              </Text>
+              {isDrawing && (
+                <View style={styles.canvas}>
+                  <DrawingScreen />
+                </View>
+              )}
+              <Button
+                title="stop alarm"
+                onPress={() => {
+                  setAlarmIsGoingOff(false);
+                }}
+              />
+            </View>
+          </View>
+        </Modal>
+      </View>
+    </DrawingSuccessContext.Provider>
   );
 }
 
